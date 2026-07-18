@@ -1,0 +1,209 @@
+{
+  "name": "AI Email Classifier",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "a764126b-3029-403b-92d0-cfea6846197e",
+      "name": "On New Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        112
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "6z3QjrXymfpzmaMZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=From: {{ $json.from.text }}\nSubject: {{ $json.subject }}\n\n{{ $json.text }}",
+        "categories": [
+          {
+            "category": "Job Opportunity",
+            "description": "Emails related to job applications, interviews, recruiters, offers, hiring processes or career opportunities."
+          },
+          {
+            "category": "Appointment Booking",
+            "description": "Emails about scheduling, confirming, rescheduling or cancelling meetings, appointments or reservations."
+          },
+          {
+            "category": "Payment Reminder",
+            "description": "Emails about invoices, bills, subscriptions, payments due or overdue payments."
+          },
+          {
+            "category": "Newsletter",
+            "description": "Marketing emails, newsletters, advertisements, promotions or general updates."
+          },
+          {
+            "category": "Personal",
+            "description": "Personal communication from friends, family or individuals."
+          }
+        ],
+        "options": {
+          "multiClass": false,
+          "fallback": "discard"
+        }
+      },
+      "id": "6c4e8a59-457e-4b8c-b1d6-8d6b2c247032",
+      "name": "Classify Email",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        112
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "3c2d7999-2ff6-438a-a582-ec1c263f975d",
+      "name": "Classifier Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        336
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "XjRVxjnROqlGaPyw",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "notify-appointment",
+          "mode": "name"
+        },
+        "text": "=:calendar: *Appointment Booking email*\n*From:* {{ $json.from.text }}\n*Subject:* {{ $json.subject }}\n\n{{ $json.snippet || ($json.text || \"\").slice(0, 500) }}",
+        "otherOptions": {}
+      },
+      "id": "21af291a-6230-418a-89b3-3438490c01f5",
+      "name": "Notify Appointment",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        576,
+        16
+      ],
+      "webhookId": "e5c5db6d-feac-472a-81c4-d34d3594342c",
+      "credentials": {
+        "slackApi": {
+          "id": "ctZ7GoPDXKsWzyMq",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "notify-payment",
+          "mode": "name"
+        },
+        "text": "=:money_with_wings: *Payment Reminder email*\n*From:* {{ $json.from.text }}\n*Subject:* {{ $json.subject }}\n\n{{ $json.snippet || ($json.text || \"\").slice(0, 500) }}",
+        "otherOptions": {}
+      },
+      "id": "e6cc2448-1c51-4f21-8d68-53a6a61eb36f",
+      "name": "Notify Payment",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        576,
+        208
+      ],
+      "webhookId": "386a1b3e-9792-437c-b325-99eb588e519b",
+      "credentials": {
+        "slackApi": {
+          "id": "ctZ7GoPDXKsWzyMq",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On New Email": {
+      "main": [
+        [
+          {
+            "node": "Classify Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Email": {
+      "main": [
+        [
+          {
+            "node": "Notify Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classifier Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fe083ea7-bf28-4355-b5cb-6fd79f3f3845",
+  "meta": {
+    "instanceId": "6184a72df99093a196de5e6454c80ae9014f0fd8e36064a4968423fe353da67b"
+  },
+  "nodeGroups": [],
+  "id": "2QFw5eXcmkdHJhZ8",
+  "tags": []
+}
