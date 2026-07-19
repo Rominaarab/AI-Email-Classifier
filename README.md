@@ -83,6 +83,6 @@ The complete n8n workflow can be imported directly from:
 
 ```
 
-workflow/ai-email-classifier.json
+Al Email Classifier.json
 
 ```
