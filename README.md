@@ -73,7 +73,7 @@ and posts a structured notification directly to Slack.
 
 ### Slack Notification
 
-![Slack Output](screenshots/slack-output.png)
+![Slack Output](slack-output.png)
 
 ---
 
