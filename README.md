@@ -69,7 +69,7 @@ and posts a structured notification directly to Slack.
 
 ### n8n Workflow
 
-![Workflow](n8n Workflow.png)
+![Workflow](n8n-Workflow.png)
 
 ### Slack Notification
 
