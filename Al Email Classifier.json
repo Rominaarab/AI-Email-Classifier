@@ -16,13 +16,13 @@
         },
         "options": {}
       },
-      "id": "a764126b-3029-403b-92d0-cfea6846197e",
+      "id": "99b82e63-3c55-4f05-bbf2-4b2be070a9f1",
       "name": "On New Email",
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.4,
       "position": [
-        0,
-        112
+        112,
+        80
       ],
       "credentials": {
         "gmailOAuth2": {
@@ -33,61 +33,40 @@
     },
     {
       "parameters": {
-        "inputText": "=From: {{ $json.from.text }}\nSubject: {{ $json.subject }}\n\n{{ $json.text }}",
-        "categories": [
-          {
-            "category": "Job Opportunity",
-            "description": "Emails related to job applications, interviews, recruiters, offers, hiring processes or career opportunities."
-          },
-          {
-            "category": "Appointment Booking",
-            "description": "Emails about scheduling, confirming, rescheduling or cancelling meetings, appointments or reservations."
-          },
-          {
-            "category": "Payment Reminder",
-            "description": "Emails about invoices, bills, subscriptions, payments due or overdue payments."
-          },
-          {
-            "category": "Newsletter",
-            "description": "Marketing emails, newsletters, advertisements, promotions or general updates."
-          },
-          {
-            "category": "Personal",
-            "description": "Personal communication from friends, family or individuals."
-          }
-        ],
+        "text": "=From: {{ $json.from.text }}\nSubject: {{ $json.subject }}\n\n{{ ($json.text || \"\").slice(0, 3000) }}",
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"category\":{\"type\":\"string\",\"enum\":[\"Appointment Booking\",\"Payment Reminder\",\"Other\"],\"description\":\"Appointment Booking = a genuine email about booking, scheduling, confirming, rescheduling or cancelling an appointment, meeting, reservation or call (NOT marketing invitations or promotional webinars). Payment Reminder = a genuine email about a payment, invoice, bill or subscription that is due or overdue with a deadline (NOT promotional discounts or sales). Otherwise use \\\"Other\\\".\"},\"summary\":{\"type\":\"string\",\"description\":\"One short sentence summarising the email in its original language.\"},\"appointment_date\":{\"type\":\"string\",\"description\":\"For appointments: the date and time of the appointment, e.g. \\\"Wed 15 July 2026, 08:50\\\". Empty if not an appointment or not stated.\"},\"appointment_location\":{\"type\":\"string\",\"description\":\"For appointments: the full location/address. Empty if not an appointment or not stated.\"},\"appointment_service\":{\"type\":\"string\",\"description\":\"For appointments: what the appointment is for (service, purpose). Empty if not an appointment or not stated.\"}},\"required\":[\"category\"]}",
         "options": {
-          "multiClass": false,
-          "fallback": "discard"
+          "systemPromptTemplate": "You are an expert email classification and extraction algorithm. Classify the email into exactly one category and extract the relevant fields. Only fill fields relevant to the chosen category; leave the others as empty strings. If a value is unknown, use an empty string."
         }
       },
-      "id": "6c4e8a59-457e-4b8c-b1d6-8d6b2c247032",
-      "name": "Classify Email",
-      "type": "@n8n/n8n-nodes-langchain.textClassifier",
-      "typeVersion": 1.1,
+      "id": "233650e1-12b1-4fc4-b9e3-8bc7d47ad4cf",
+      "name": "Classify & Extract",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
       "position": [
-        224,
-        112
+        368,
+        80
       ],
-      "onError": "continueErrorOutput"
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "model": {
           "__rl": true,
           "mode": "list",
-          "value": "gpt-5-mini"
+          "value": "gpt-4o-mini"
         },
         "builtInTools": {},
         "options": {}
       },
-      "id": "3c2d7999-2ff6-438a-a582-ec1c263f975d",
-      "name": "Classifier Model",
+      "id": "058522e7-0ff2-42da-a062-dc61b4d02855",
+      "name": "Extractor Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        304,
-        336
+        448,
+        304
       ],
       "credentials": {
         "openAiApi": {
@@ -98,55 +77,94 @@
     },
     {
       "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "Appointment Booking",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Appointment"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "Payment Reminder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Payment"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "992ffb30-667f-43f8-a946-5b58bbad486f",
+      "name": "Route By Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
         "select": "channel",
         "channelId": {
           "__rl": true,
           "value": "notify-appointment",
           "mode": "name"
         },
-        "text": "=:calendar: *Appointment Booking email*\n*From:* {{ $json.from.text }}\n*Subject:* {{ $json.subject }}\n\n{{ $json.snippet || ($json.text || \"\").slice(0, 500) }}",
+        "text": "=:calendar: *Appointment Booking*\n*From:* {{ $('On New Email').item.json.from.text }}\n*Subject:* {{ $('On New Email').item.json.subject }}\n*Received:* {{ $('On New Email').item.json.date }}\n\n*Date:* {{ $json.output.appointment_date }}\n*Location:* {{ $json.output.appointment_location }}\n*Service:* {{ $json.output.appointment_service }}\n\n_{{ $json.output.summary }}_",
         "otherOptions": {}
       },
-      "id": "21af291a-6230-418a-89b3-3438490c01f5",
+      "id": "7a60e2c0-31f3-4f3c-9449-0362d501915b",
       "name": "Notify Appointment",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.5,
       "position": [
-        576,
-        16
+        960,
+        64
       ],
-      "webhookId": "e5c5db6d-feac-472a-81c4-d34d3594342c",
+      "webhookId": "ed081ab7-dedd-4701-bbc2-0fac459e18eb",
       "credentials": {
-        "slackApi": {
-          "id": "ctZ7GoPDXKsWzyMq",
-          "name": "Slack account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "notify-payment",
-          "mode": "name"
-        },
-        "text": "=:money_with_wings: *Payment Reminder email*\n*From:* {{ $json.from.text }}\n*Subject:* {{ $json.subject }}\n\n{{ $json.snippet || ($json.text || \"\").slice(0, 500) }}",
-        "otherOptions": {}
-      },
-      "id": "e6cc2448-1c51-4f21-8d68-53a6a61eb36f",
-      "name": "Notify Payment",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.5,
-      "position": [
-        576,
-        208
-      ],
-      "webhookId": "386a1b3e-9792-437c-b325-99eb588e519b",
-      "credentials": {
-        "slackApi": {
-          "id": "ctZ7GoPDXKsWzyMq",
-          "name": "Slack account"
+        "slackOAuth2Api": {
+          "id": "6fa38prLTrcD3Xl2",
+          "name": "Slack account 2"
         }
       }
     }
@@ -157,14 +175,36 @@
       "main": [
         [
           {
-            "node": "Classify Email",
+            "node": "Classify & Extract",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Classify Email": {
+    "Classify & Extract": {
+      "main": [
+        [
+          {
+            "node": "Route By Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extractor Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify & Extract",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Category": {
       "main": [
         [
           {
@@ -173,24 +213,7 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Notify Payment",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Classifier Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Classify Email",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
+        []
       ]
     }
   },
@@ -199,7 +222,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "fe083ea7-bf28-4355-b5cb-6fd79f3f3845",
+  "versionId": "7f9e2011-ec5d-476a-ac7b-d8429440e68f",
   "meta": {
     "instanceId": "6184a72df99093a196de5e6454c80ae9014f0fd8e36064a4968423fe353da67b"
   },
